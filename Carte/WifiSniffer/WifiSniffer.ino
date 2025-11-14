@@ -47,8 +47,9 @@ void setup() {
 void loop() {
   // scan for existing networks:
   Serial.println("Scanning available networks...");
-  listNetworks();
-  delay(10000);
+  //listNetworks();
+  sendLoraPayload();
+  delay(60000);
 }
 
 void printMacAddress() {
@@ -71,10 +72,93 @@ void printMacAddress() {
   Serial.println(mac[0], HEX);
 }
 
+String bytesToHex(const byte* bytes, int len){
+  String hex = "";
+  for (int i = 0; i<len;i++){
+    if (bytes[i] < 16){
+      hex += "0";
+    }
+    hex += String(bytes[i],HEX);
+  }
+  return hex;
+}
+
+//nombre max de point d'acces / payload
+#define MAX_PAYLOAD 7
+
+void sendLoraPayload(){
+    // scan for nearby networks:
+  Serial.println("** Scan Networks **");
+  int numSsid = WiFi.scanNetworks();
+  if (numSsid == -1) {
+    Serial.println("Couldn't get a wifi connection");
+    while (true);
+  }
+
+  // print the list of networks seen:
+  Serial.print("number of available networks:");
+  Serial.println(numSsid);
+  
+  byte payload[MAX_PAYLOAD * 7];
+  int payloadIndex = 0;
+  int numApsToSend = min(numSsid,MAX_PAYLOAD);
+
+  // print the network number and name for each network found:
+  int thisNet = 0;
+  int filteredNets = 0;
+  while(thisNet < numSsid && filteredNets < MAX_PAYLOAD){
+    //To serial, only for debug
+    /*Serial.print("\n");
+    Serial.print(thisNet);
+    Serial.print(") ");
+    Serial.print(WiFi.SSID(thisNet));
+    Serial.print("\tSignal: ");
+    Serial.print(WiFi.RSSI(thisNet));
+    Serial.print(" dBm");*/
+
+    //Filter the BSSID
+    byte MacAdress[6]; 
+    memcpy(MacAdress,WiFi.BSSID(thisNet),6);
+    if (MACFilter(MacAdress)){
+      //Add to payload
+      memcpy(&payload[payloadIndex],MacAdress,6);
+      payloadIndex += 6;
+      payload[payloadIndex] = (int8_t)WiFi.RSSI(thisNet);
+      payloadIndex+=1;
+      filteredNets++;
+    }
+    
+    thisNet++;
+  }
+
+  String hexPayload = bytesToHex(payload,payloadIndex);
+  hexPayload.toUpperCase();
+  String command = "AT+MSGHEX=" + hexPayload;
+
+  //Serial only for debug
+  Serial.println("\n\n --- LORA PAYLOAD ---");
+  Serial.print("Payload : ");
+  Serial.println(hexPayload);
+  Serial.print("Payload size : ");
+  Serial.println(payloadIndex);
+
+  //Sends the byte
+  Serial2.println(command);
+}
+
+bool MACFilter(byte* MAC){
+
+  if(MAC[0] & 0x02){
+    return false;
+  }
+  return true;
+}
+
 void listNetworks() {
   // scan for nearby networks:
+  //For debug purposes
   Serial.println("** Scan Networks **");
-  int numSsid = WiFi.scanNetworks();w
+  int numSsid = WiFi.scanNetworks();
   if (numSsid == -1) {
     Serial.println("Couldn't get a wifi connection");
     while (true);
@@ -86,6 +170,8 @@ void listNetworks() {
 
   // print the network number and name for each network found:
   for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+    byte MacAdress[6]; 
+    memcpy(MacAdress,WiFi.BSSID(thisNet),6);
     Serial.print("\n");
     Serial.print(thisNet);
     Serial.print(") ");
@@ -93,14 +179,17 @@ void listNetworks() {
     Serial.print("\tSignal: ");
     Serial.print(WiFi.RSSI(thisNet));
     Serial.print(" dBm");
+    Serial.print("Temp : ");
+    Serial.print(MACFilter(MacAdress));
+
+    
+
   }
 }
 
 void receiveMessageSerial2(){
-  if (Serial2.available()) {
-    String msg = Serial2.readStringUntil('\n');
-    Serial.print("Reçu du périphérique: ");
-    Serial.println(msg);
+  while(Serial2.available()){
+    Serial.write(Serial2.read());
   }
 }
 
