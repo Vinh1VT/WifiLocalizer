@@ -14,18 +14,34 @@
  by Tom Igoe and Jaymes Dec
  */
 
+ /*
+ Modified for a Wifi Localizer application
+ by Vinh VO TUAN
+  11/2025
+ 
+ */
+
 
 #include <SPI.h>
 #include <WiFi.h>
 
+
+
+#define RX2_PIN 16
+#define TX2_PIN 17
+
+
+
 void setup() {
   //Initialize serial and wait for port to open:
-  Serial.begin(9600);
+  Serial.begin(115200);
+  Serial2.begin(9600,SERIAL_8N1,RX2_PIN,TX2_PIN);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
   // Print WiFi MAC address:
   printMacAddress();
+  setupLora();
 }
 
 void loop() {
@@ -58,7 +74,7 @@ void printMacAddress() {
 void listNetworks() {
   // scan for nearby networks:
   Serial.println("** Scan Networks **");
-  int numSsid = WiFi.scanNetworks();
+  int numSsid = WiFi.scanNetworks();w
   if (numSsid == -1) {
     Serial.println("Couldn't get a wifi connection");
     while (true);
@@ -80,4 +96,54 @@ void listNetworks() {
   }
 }
 
+void receiveMessageSerial2(){
+  if (Serial2.available()) {
+    String msg = Serial2.readStringUntil('\n');
+    Serial.print("Reçu du périphérique: ");
+    Serial.println(msg);
+  }
+}
 
+void waitForJoin() {
+  while (true) {
+    if (Serial2.available()) {
+      String msg = Serial2.readStringUntil('\n');
+      msg.trim();
+      Serial.println(msg);
+      if (msg.indexOf("+JOIN: Done") != -1) break;
+    }
+  }
+}
+
+
+void setupLora(){
+
+  Serial2.println("AT+DR=EU868");
+  receiveMessageSerial2();
+  delay(1000);
+
+  Serial2.println("AT+ID=DevEUI,70B3D57ED0074060");
+  receiveMessageSerial2();
+  delay(1000);
+
+  Serial2.println("AT+ID=AppEUI,0000000000000000");
+  receiveMessageSerial2();
+  delay(1000);
+
+  Serial2.println("AT+KEY=APPKEY,AB69B9D29A86812C74D19A298F457DD5");
+  receiveMessageSerial2();
+  delay(1000);
+
+  Serial2.println("AT+MODE=LWOTAA");
+  receiveMessageSerial2();
+  delay(1000);
+
+  Serial2.println("AT+DR=DR3");
+  receiveMessageSerial2();
+  delay(2000);
+
+  Serial2.println("AT+JOIN");
+  waitForJoin();
+
+  Serial.println("Config finie");
+}
