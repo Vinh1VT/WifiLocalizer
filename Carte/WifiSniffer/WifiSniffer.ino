@@ -24,21 +24,28 @@
 
 #include <SPI.h>
 #include <WiFi.h>
+#include <Arduino.h>
+#include <AsyncWebSerial.h>
+#include <ESPAsyncWebServer.h>
 
+AsyncWebSerial webSerial;
+AsyncWebServer server(80);
 
 
 #define RX2_PIN 16
 #define TX2_PIN 17
 
+const char* ssid = "Vinh";
+const char* password = "PlanteVerte";
 
 
 void setup() {
+  WiFi.begin(ssid,password);
+  
   //Initialize serial and wait for port to open:
-  Serial.begin(115200);
+  webSerial.begin(&server);
+  server.begin();
   Serial2.begin(9600,SERIAL_8N1,RX2_PIN,TX2_PIN);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
   // Print WiFi MAC address:
   printMacAddress();
   setupLora();
@@ -46,7 +53,7 @@ void setup() {
 
 void loop() {
   // scan for existing networks:
-  Serial.println("Scanning available networks...");
+  webSerial.println("Scanning available networks...");
   //listNetworks();
   sendLoraPayload();
   delay(60000);
@@ -58,18 +65,18 @@ void printMacAddress() {
 
   // print your MAC address:
   WiFi.macAddress(mac);
-  Serial.print("MAC: ");
-  Serial.print(mac[5], HEX);
-  Serial.print(":");
-  Serial.print(mac[4], HEX);
-  Serial.print(":");
-  Serial.print(mac[3], HEX);
-  Serial.print(":");
-  Serial.print(mac[2], HEX);
-  Serial.print(":");
-  Serial.print(mac[1], HEX);
-  Serial.print(":");
-  Serial.println(mac[0], HEX);
+  webSerial.print("MAC: ");
+  webSerial.print(mac[5], HEX);
+  webSerial.print(":");
+  webSerial.print(mac[4], HEX);
+  webSerial.print(":");
+  webSerial.print(mac[3], HEX);
+  webSerial.print(":");
+  webSerial.print(mac[2], HEX);
+  webSerial.print(":");
+  webSerial.print(mac[1], HEX);
+  webSerial.print(":");
+  webSerial.println(mac[0], HEX);
 }
 
 String bytesToHex(const byte* bytes, int len){
@@ -88,16 +95,16 @@ String bytesToHex(const byte* bytes, int len){
 
 void sendLoraPayload(){
     // scan for nearby networks:
-  Serial.println("** Scan Networks **");
+  webSerial.println("** Scan Networks **");
   int numSsid = WiFi.scanNetworks();
   if (numSsid == -1) {
-    Serial.println("Couldn't get a wifi connection");
+    webSerial.println("Couldn't get a wifi connection");
     while (true);
   }
 
   // print the list of networks seen:
-  Serial.print("number of available networks:");
-  Serial.println(numSsid);
+  webSerial.print("number of available networks:");
+  webSerial.println(numSsid);
   
   byte payload[MAX_PAYLOAD * 7];
   int payloadIndex = 0;
@@ -136,11 +143,11 @@ void sendLoraPayload(){
   String command = "AT+MSGHEX=" + hexPayload;
 
   //Serial only for debug
-  Serial.println("\n\n --- LORA PAYLOAD ---");
-  Serial.print("Payload : ");
-  Serial.println(hexPayload);
-  Serial.print("Payload size : ");
-  Serial.println(payloadIndex);
+  webSerial.println("\n\n --- LORA PAYLOAD ---");
+  webSerial.print("Payload : ");
+  webSerial.println(hexPayload);
+  webSerial.print("Payload size : ");
+  webSerial.println(payloadIndex);
 
   //Sends the byte
   Serial2.println(command);
@@ -157,30 +164,30 @@ bool MACFilter(byte* MAC){
 void listNetworks() {
   // scan for nearby networks:
   //For debug purposes
-  Serial.println("** Scan Networks **");
+  webSerial.println("** Scan Networks **");
   int numSsid = WiFi.scanNetworks();
   if (numSsid == -1) {
-    Serial.println("Couldn't get a wifi connection");
+    webSerial.println("Couldn't get a wifi connection");
     while (true);
   }
 
   // print the list of networks seen:
-  Serial.print("number of available networks:");
-  Serial.println(numSsid);
+  webSerial.print("number of available networks:");
+  webSerial.println(numSsid);
 
   // print the network number and name for each network found:
   for (int thisNet = 0; thisNet < numSsid; thisNet++) {
     byte MacAdress[6]; 
     memcpy(MacAdress,WiFi.BSSID(thisNet),6);
-    Serial.print("\n");
-    Serial.print(thisNet);
-    Serial.print(") ");
-    Serial.print(WiFi.SSID(thisNet));
-    Serial.print("\tSignal: ");
-    Serial.print(WiFi.RSSI(thisNet));
-    Serial.print(" dBm");
-    Serial.print("Temp : ");
-    Serial.print(MACFilter(MacAdress));
+    webSerial.print("\n");
+    webSerial.print(thisNet);
+    webSerial.print(") ");
+    webSerial.print(WiFi.SSID(thisNet));
+    webSerial.print("\tSignal: ");
+    webSerial.print(WiFi.RSSI(thisNet));
+    webSerial.print(" dBm");
+    webSerial.print("Temp : ");
+    webSerial.print(MACFilter(MacAdress));
 
     
 
@@ -189,7 +196,7 @@ void listNetworks() {
 
 void receiveMessageSerial2(){
   while(Serial2.available()){
-    Serial.write(Serial2.read());
+    webSerial.write(Serial2.read());
   }
 }
 
@@ -198,7 +205,7 @@ void waitForJoin() {
     if (Serial2.available()) {
       String msg = Serial2.readStringUntil('\n');
       msg.trim();
-      Serial.println(msg);
+      webSerial.println(msg);
       if (msg.indexOf("+JOIN: Done") != -1) break;
     }
   }
@@ -227,12 +234,12 @@ void setupLora(){
   receiveMessageSerial2();
   delay(1000);
 
-  Serial2.println("AT+DR=DR3");
+  Serial2.println("AT+DR=DR0");
   receiveMessageSerial2();
   delay(2000);
 
   Serial2.println("AT+JOIN");
   waitForJoin();
 
-  Serial.println("Config finie");
+  webSerial.println("Config finie");
 }
