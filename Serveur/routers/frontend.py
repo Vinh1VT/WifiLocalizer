@@ -32,7 +32,7 @@ def read_dashboard(session: Session = Depends(get_session)):
     return html_content
 
 
-@router.get("/admin-panel", response_class=HTMLResponse)
+@router.get("/localizeframe", response_class=HTMLResponse)
 def admin_dashboard(session: Session = Depends(get_session)):
     # On ne récupère que les trames qui n'ont PAS encore de GPS
     statement = select(UplinkFrame).where(UplinkFrame.lat_gps == None).order_by(UplinkFrame.created_at.desc())
