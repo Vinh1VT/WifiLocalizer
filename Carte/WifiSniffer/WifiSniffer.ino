@@ -1,245 +1,138 @@
 /*
-
- This example  prints the Wifi shield's MAC address, and
- scans for available Wifi networks using the Wifi shield.
- Every ten seconds, it scans again. It doesn't actually
- connect to any network, so no encryption scheme is specified.
-
- Circuit:
- * WiFi shield attached
-
- created 13 July 2010
- by dlf (Metodo2 srl)
- modified 21 Junn 2012
- by Tom Igoe and Jaymes Dec
+ * ESP32 WiFi Scanner & HTTP Sender
+ * Pour le projet WifiLocalizer
+ * * Envoie les réseaux détectés via HTTP POST au format JSON.
  */
 
- /*
- Modified for a Wifi Localizer application
- by Vinh VO TUAN
-  11/2025
- 
- */
-
-
-#include <SPI.h>
 #include <WiFi.h>
-#include <Arduino.h>
-#include <AsyncWebSerial.h>
-#include <ESPAsyncWebServer.h>
+#include <HTTPClient.h>
 
-AsyncWebSerial webSerial;
-AsyncWebServer server(80);
-
-
-#define RX2_PIN 16
-#define TX2_PIN 17
-
-const char* ssid = "Vinh";
+// --- CONFIGURATION ---
+const char* ssid = "Vinh";        // Le WiFi pour se connecter à Internet/Serveur
 const char* password = "PlanteVerte";
 
+// ⚠️ REMPLACE 192.168.X.X par l'IP locale de ton PC qui fait tourner le serveur FastAPI
+// Garde le port 8000 et le chemin /ingest/
+const char* serverUrl = "http://vps-98cd652a.vps.ovh.net:8012/algo"; 
 
-void setup() {
-  WiFi.begin(ssid,password);
-  
-  //Initialize serial and wait for port to open:
-  webSerial.begin(&server);
-  server.begin();
-  Serial2.begin(9600,SERIAL_8N1,RX2_PIN,TX2_PIN);
-  // Print WiFi MAC address:
-  printMacAddress();
-  setupLora();
-}
-
-void loop() {
-  // scan for existing networks:
-  webSerial.println("Scanning available networks...");
-  //listNetworks();
-  sendLoraPayload();
-  delay(60000);
-}
-
-void printMacAddress() {
-  // the MAC address of your Wifi shield
-  byte mac[6];
-
-  // print your MAC address:
-  WiFi.macAddress(mac);
-  webSerial.print("MAC: ");
-  webSerial.print(mac[5], HEX);
-  webSerial.print(":");
-  webSerial.print(mac[4], HEX);
-  webSerial.print(":");
-  webSerial.print(mac[3], HEX);
-  webSerial.print(":");
-  webSerial.print(mac[2], HEX);
-  webSerial.print(":");
-  webSerial.print(mac[1], HEX);
-  webSerial.print(":");
-  webSerial.println(mac[0], HEX);
-}
-
-String bytesToHex(const byte* bytes, int len){
-  String hex = "";
-  for (int i = 0; i<len;i++){
-    if (bytes[i] < 16){
-      hex += "0";
-    }
-    hex += String(bytes[i],HEX);
-  }
-  return hex;
-}
-
-//nombre max de point d'acces / payload
-#define MAX_PAYLOAD 7
-
-void sendLoraPayload(){
-    // scan for nearby networks:
-  webSerial.println("** Scan Networks **");
-  int numSsid = WiFi.scanNetworks();
-  if (numSsid == -1) {
-    webSerial.println("Couldn't get a wifi connection");
-    while (true);
-  }
-
-  // print the list of networks seen:
-  webSerial.print("number of available networks:");
-  webSerial.println(numSsid);
-  
-  byte payload[MAX_PAYLOAD * 7];
-  int payloadIndex = 0;
-  int numApsToSend = min(numSsid,MAX_PAYLOAD);
-
-  // print the network number and name for each network found:
-  int thisNet = 0;
-  int filteredNets = 0;
-  while(thisNet < numSsid && filteredNets < MAX_PAYLOAD){
-    //To serial, only for debug
-    /*Serial.print("\n");
-    Serial.print(thisNet);
-    Serial.print(") ");
-    Serial.print(WiFi.SSID(thisNet));
-    Serial.print("\tSignal: ");
-    Serial.print(WiFi.RSSI(thisNet));
-    Serial.print(" dBm");*/
-
-    //Filter the BSSID
-    byte MacAdress[6]; 
-    memcpy(MacAdress,WiFi.BSSID(thisNet),6);
-    if (MACFilter(MacAdress)){
-      //Add to payload
-      memcpy(&payload[payloadIndex],MacAdress,6);
-      payloadIndex += 6;
-      payload[payloadIndex] = (int8_t)WiFi.RSSI(thisNet);
-      payloadIndex+=1;
-      filteredNets++;
-    }
-    
-    thisNet++;
-  }
-
-  String hexPayload = bytesToHex(payload,payloadIndex);
-  hexPayload.toUpperCase();
-  String command = "AT+MSGHEX=" + hexPayload;
-
-  //Serial only for debug
-  webSerial.println("\n\n --- LORA PAYLOAD ---");
-  webSerial.print("Payload : ");
-  webSerial.println(hexPayload);
-  webSerial.print("Payload size : ");
-  webSerial.println(payloadIndex);
-
-  //Sends the byte
-  Serial2.println(command);
-}
-
-bool MACFilter(byte* MAC){
-
+// --- FILTRE MAC ---
+bool MACFilter(uint8_t* MAC){
+  // Filtre les adresses locales/randomisées (bit 1 du premier octet à 1)
   if(MAC[0] & 0x02){
     return false;
   }
   return true;
 }
 
-void listNetworks() {
-  // scan for nearby networks:
-  //For debug purposes
-  webSerial.println("** Scan Networks **");
+// --- UTILITAIRE FORMATAGE MAC ---
+String macToString(uint8_t* mac) {
+  String s = "";
+  for (int i = 0; i < 6; i++) {
+    if (mac[i] < 16) s += "0";
+    s += String(mac[i], HEX);
+    if (i < 5) s += ":"; // Ajoute les deux-points pour le format standard
+  }
+  s.toUpperCase();
+  return s;
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  // Connexion WiFi
+  Serial.println();
+  Serial.print("Connexion a ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connecte.");
+  Serial.print("Adresse IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+  // 1. SCAN DES RÉSEAUX
+  Serial.println("Scan des reseaux...");
   int numSsid = WiFi.scanNetworks();
+  
   if (numSsid == -1) {
-    webSerial.println("Couldn't get a wifi connection");
-    while (true);
-  }
+    Serial.println("Erreur de scan WiFi");
+  } else {
+    Serial.print(numSsid);
+    Serial.println(" reseaux trouves.");
 
-  // print the list of networks seen:
-  webSerial.print("number of available networks:");
-  webSerial.println(numSsid);
-
-  // print the network number and name for each network found:
-  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
-    byte MacAdress[6]; 
-    memcpy(MacAdress,WiFi.BSSID(thisNet),6);
-    webSerial.print("\n");
-    webSerial.print(thisNet);
-    webSerial.print(") ");
-    webSerial.print(WiFi.SSID(thisNet));
-    webSerial.print("\tSignal: ");
-    webSerial.print(WiFi.RSSI(thisNet));
-    webSerial.print(" dBm");
-    webSerial.print("Temp : ");
-    webSerial.print(MACFilter(MacAdress));
-
+    // 2. CONSTRUCTION DU JSON
+    // On veut obtenir : {"networks": [{"bssid": "XX:XX...", "rssi": -80}, ...]}
     
+    String jsonPayload = "{\"networks\": [";
+    int count = 0;
 
-  }
-}
+    for (int i = 0; i < numSsid; i++) {
+      uint8_t* bssidIn = WiFi.BSSID(i);
+      
+      // Application du filtre
+      if (MACFilter(bssidIn)) {
+        // Si ce n'est pas le premier élément, on ajoute une virgule
+        if (count > 0) {
+          jsonPayload += ",";
+        }
+        
+        jsonPayload += "{\"bssid\": \"";
+        jsonPayload += macToString(bssidIn);
+        jsonPayload += "\", \"rssi\": ";
+        jsonPayload += WiFi.RSSI(i);
+        jsonPayload += "}";
+        
+        count++;
+      }
+    }
+    jsonPayload += "]}";
 
-void receiveMessageSerial2(){
-  while(Serial2.available()){
-    webSerial.write(Serial2.read());
-  }
-}
+    // 3. ENVOI HTTP (Si on a trouvé des réseaux valides)
+    if (count > 0) {
+      if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        
+        Serial.println("Envoi au serveur...");
+        // Serial.println(jsonPayload); // Decommenter pour debugguer le JSON
 
-void waitForJoin() {
-  while (true) {
-    if (Serial2.available()) {
-      String msg = Serial2.readStringUntil('\n');
-      msg.trim();
-      webSerial.println(msg);
-      if (msg.indexOf("+JOIN: Done") != -1) break;
+        http.begin(serverUrl);
+        http.addHeader("Content-Type", "application/json");
+
+        int httpResponseCode = http.POST(jsonPayload);
+
+        if (httpResponseCode > 0) {
+          String response = http.getString();
+          Serial.print("Code HTTP: ");
+          Serial.println(httpResponseCode);
+          Serial.print("Reponse: ");
+          Serial.println(response);
+        } else {
+          Serial.print("Erreur lors de l'envoi: ");
+          Serial.println(httpResponseCode);
+        }
+        
+        http.end();
+      } else {
+        Serial.println("Erreur: WiFi deconnecté");
+      }
+    } else {
+      Serial.println("Aucun reseau valide apres filtrage.");
     }
   }
-}
 
+  // Nettoyage de la mémoire du scan
+  WiFi.scanDelete();
 
-void setupLora(){
-
-  Serial2.println("AT+DR=EU868");
-  receiveMessageSerial2();
-  delay(1000);
-
-  Serial2.println("AT+ID=DevEUI,70B3D57ED0074060");
-  receiveMessageSerial2();
-  delay(1000);
-
-  Serial2.println("AT+ID=AppEUI,0000000000000000");
-  receiveMessageSerial2();
-  delay(1000);
-
-  Serial2.println("AT+KEY=APPKEY,AB69B9D29A86812C74D19A298F457DD5");
-  receiveMessageSerial2();
-  delay(1000);
-
-  Serial2.println("AT+MODE=LWOTAA");
-  receiveMessageSerial2();
-  delay(1000);
-
-  Serial2.println("AT+DR=DR0");
-  receiveMessageSerial2();
-  delay(2000);
-
-  Serial2.println("AT+JOIN");
-  waitForJoin();
-
-  webSerial.println("Config finie");
+  // Attendre avant le prochain scan (ex: 10 secondes)
+  Serial.println("Attente 10s...");
+  delay(10000);
 }
