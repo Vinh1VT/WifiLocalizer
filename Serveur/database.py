@@ -6,7 +6,6 @@ from typing import List, Optional
 sqlite_file = "wifi_ap.db"
 sqlite_url = f"sqlite:///{sqlite_file}"
 
-# check_same_thread=False est crucial pour SQLite avec FastAPI
 engine = create_engine(sqlite_url, echo=False, connect_args={"check_same_thread": False})
 
 
@@ -31,9 +30,12 @@ class WifiDevice(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     bssid: str = Field(index=True, unique=True)
 
-    # Position ESTIMÉE du point d'accès (calculée par tes soins)
+    # Position ESTIMÉE
     lat_estimated: Optional[float] = Field(default=None)
     lon_estimated: Optional[float] = Field(default=None)
+
+    # --- AJOUT MANQUANT ---
+    last_calculated_at: Optional[datetime] = Field(default=None)
 
     detections: List["WifiDetection"] = Relationship(back_populates="wifi")
 
@@ -42,11 +44,11 @@ class UplinkFrame(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
 
-    # Position RÉELLE (Vérité terrain, donnée par l'admin)
+    # Position RÉELLE
     lat_gps: Optional[float] = Field(default=None)
     lon_gps: Optional[float] = Field(default=None)
 
-    # Position ESTIMÉE (Calculée si pas de GPS)
+    # Position ESTIMÉE
     lat_estimated: Optional[float] = Field(default=None)
     lon_estimated: Optional[float] = Field(default=None)
 
