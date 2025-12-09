@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI
 from database import create_db_and_tables
-from routers import ttn,frontend,admin
+from routers import ttn,frontend,admin,algo
 
 app = FastAPI()
 
@@ -18,3 +18,4 @@ app.include_router(frontend.router)
 app.include_router(ttn.router, prefix="/ttn", tags=["TTN"])
 
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(algo.router, prefix="/algo", tags=["Algo"])
