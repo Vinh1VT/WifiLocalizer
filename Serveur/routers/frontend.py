@@ -38,31 +38,28 @@ def index():
 
 
 # --- CARTE INTERACTIVE ---
+# ... (Gardes les imports en haut du fichier)
+
 @router.get("/map", response_class=HTMLResponse)
 def show_map(session: Session = Depends(get_session)):
     # 1. Récupération des données
-    # On trie par date pour le tracé du chemin
     frames = session.exec(select(UplinkFrame).order_by(UplinkFrame.created_at)).all()
-    # On ne prend que les WiFi qui ont une position estimée
     aps = session.exec(select(WifiDevice).where(WifiDevice.lat_estimated != None)).all()
 
-    # 2. Centrage de la carte
-    start_lat, start_lon = 48.8566, 2.3522  # Paris par défaut
-
-    # On cherche la dernière position connue pour centrer la carte dessus
+    # 2. Centrage
+    start_lat, start_lon = 48.8566, 2.3522
     valid_frames = [f for f in frames if f.lat_gps or f.lat_estimated]
     if valid_frames:
         last = valid_frames[-1]
-        # Priorité au GPS, sinon l'estimé
         start_lat = last.lat_gps if last.lat_gps else last.lat_estimated
         start_lon = last.lon_gps if last.lon_gps else last.lon_estimated
 
-    m = folium.Map(location=[start_lat, start_lon], zoom_start=16)
+    m = folium.Map(location=[start_lat, start_lon], zoom_start=17)  # Zoom un peu plus fort
 
-    # 3. Création des Groupes (Calques)
+    # 3. Groupes
     fg_gps = folium.FeatureGroup(name="✅ Trames GPS (Réelles)")
-    fg_est = folium.FeatureGroup(name="⚠️ Trames Estimées (Calcul)")
-    fg_aps = folium.FeatureGroup(name="📡 Bornes WiFi (Estimées)")
+    fg_est = folium.FeatureGroup(name="⚠️ Trames Estimées (Incertitude)")
+    fg_aps = folium.FeatureGroup(name="📡 Bornes WiFi (Couverture)")
     fg_path = folium.FeatureGroup(name="📈 Chemin Parcouru")
 
     path_points = []
@@ -70,40 +67,66 @@ def show_map(session: Session = Depends(get_session)):
     # 4. Ajout des Trames
     for frame in frames:
         time_str = frame.created_at.strftime('%H:%M:%S')
+        nb_aps = len(frame.detections)
 
-        # A. Cas GPS (Vert)
+        # A. Cas GPS (Vert - Petit point précis)
         if frame.lat_gps and frame.lon_gps:
-            popup_txt = f"<b>Trame #{frame.id}</b><br>Source: GPS<br>Heure: {time_str}"
+            popup_txt = f"<b>Trame #{frame.id}</b><br>GPS (Précis)<br>{time_str}"
             folium.CircleMarker(
                 location=[frame.lat_gps, frame.lon_gps],
-                radius=6, color="green", fill=True, fill_color="green", fill_opacity=0.7,
+                radius=4,  # Petit rayon fixe
+                color="green", fill=True, fill_color="green", fill_opacity=1,
                 popup=popup_txt
             ).add_to(fg_gps)
             path_points.append((frame.lat_gps, frame.lon_gps))
 
-        # B. Cas Estimé (Orange)
+        # B. Cas Estimé (Orange - Cercle d'incertitude)
         elif frame.lat_estimated and frame.lon_estimated:
-            popup_txt = f"<b>Trame #{frame.id}</b><br>Source: Triangulation<br>Heure: {time_str}"
-            folium.CircleMarker(
+            # Calcul "maison" de l'incertitude :
+            # Moins on a de bornes, plus le cercle est grand.
+            # Base : 20m. Si 1 borne -> 40m. Si 3 bornes -> 15m...
+            radius_uncertainty = max(10, 50 - (nb_aps * 10))
+
+            popup_txt = f"<b>Trame #{frame.id}</b><br>Estimée<br>AP vus: {nb_aps}<br>Incertitude: ~{radius_uncertainty}m"
+
+            # Le cercle représente la zone probable
+            folium.Circle(
                 location=[frame.lat_estimated, frame.lon_estimated],
-                radius=6, color="orange", fill=True, fill_color="orange", fill_opacity=0.7,
+                radius=radius_uncertainty,  # Rayon en MÈTRES (vrai échelle géographique)
+                color="orange", weight=1,
+                fill=True, fill_color="orange", fill_opacity=0.2,  # Très transparent
                 popup=popup_txt
             ).add_to(fg_est)
+
+            # Un petit point au centre pour la position calculée exacte
+            folium.CircleMarker(
+                location=[frame.lat_estimated, frame.lon_estimated],
+                radius=2, color="red", fill=True, fill_opacity=1, popup="Centre estimé"
+            ).add_to(fg_est)
+
             path_points.append((frame.lat_estimated, frame.lon_estimated))
 
-    # 5. Tracé du chemin (Ligne Rouge)
+    # 5. Chemin
     if len(path_points) > 1:
-        folium.PolyLine(
-            path_points, color="red", weight=3, opacity=0.6
-        ).add_to(fg_path)
+        folium.PolyLine(path_points, color="red", weight=2, opacity=0.5, dash_array='5, 10').add_to(fg_path)
 
-    # 6. Ajout des Bornes WiFi (Icônes Bleues)
+    # 6. Bornes WiFi (Cercles Bleus)
     for ap in aps:
         if ap.lat_estimated and ap.lon_estimated:
+            # On dessine un cercle autour de la borne pour simuler sa portée (ex: 30m en ville)
+            folium.Circle(
+                location=[ap.lat_estimated, ap.lon_estimated],
+                radius=30,  # Portée théorique en mètres
+                color="blue", weight=1,
+                fill=True, fill_color="blue", fill_opacity=0.1,
+                popup=f"<b>WiFi: {ap.bssid}</b><br>Portée estimée: ~30m"
+            ).add_to(fg_aps)
+
+            # Icône au centre
             folium.Marker(
                 location=[ap.lat_estimated, ap.lon_estimated],
-                popup=f"<b>WiFi: {ap.bssid}</b><br>ID: {ap.id}",
-                icon=folium.Icon(color="blue", icon="wifi", prefix="fa")
+                icon=folium.Icon(color="blue", icon="wifi", prefix="fa"),
+                popup=f"ID: {ap.id}"
             ).add_to(fg_aps)
 
     # 7. Finalisation
@@ -112,7 +135,7 @@ def show_map(session: Session = Depends(get_session)):
     fg_est.add_to(m)
     fg_gps.add_to(m)
 
-    folium.LayerControl().add_to(m)
+    folium.LayerControl(collapsed=False).add_to(m)
 
     return m.get_root().render()
 
