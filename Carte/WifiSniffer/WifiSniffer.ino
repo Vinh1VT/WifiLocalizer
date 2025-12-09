@@ -13,7 +13,7 @@ const char* password = "PlanteVerte";
 
 // ⚠️ REMPLACE 192.168.X.X par l'IP locale de ton PC qui fait tourner le serveur FastAPI
 // Garde le port 8000 et le chemin /ingest/
-const char* serverUrl = "http://vps-98cd652a.vps.ovh.net:8012/algo"; 
+const char* serverUrl = "http://vps-98cd652a.vps.ovh.net:8012/algo/"; 
 
 // --- FILTRE MAC ---
 bool MACFilter(uint8_t* MAC){
