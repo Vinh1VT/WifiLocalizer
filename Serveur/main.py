@@ -2,12 +2,16 @@ from fastapi import FastAPI
 from sqladmin import Admin, ModelView
 from database import create_db_and_tables, engine, WifiDetection, WifiDevice, UplinkFrame
 from routers import ttn, frontend, admin, algo
+from contextlib import asynccontextmanager
 
-app = FastAPI()
-
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     create_db_and_tables()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
 
 # --- ROUTERS (API & Pages Web) ---
 # Page d'accueil (Tableau public) et Page Admin (Validation GPS)
