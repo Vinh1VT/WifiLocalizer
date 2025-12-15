@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlmodel import Session, select
-from database import get_session, UplinkFrame, WifiDevice, WifiDetection
+from database import get_session, UplinkFrame, WifiDetection
 
 router = APIRouter()
 
@@ -23,8 +23,6 @@ def recalculate_ap_positions(session: Session, frame_id: int):
     frame = session.get(UplinkFrame, frame_id)
     if not frame:
         return
-
-    print(f"Recalcul des APs pour la trame {frame_id}...")
 
     for detection in frame.detections:
         wifi = detection.wifi

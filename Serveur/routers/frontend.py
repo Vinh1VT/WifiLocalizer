@@ -47,7 +47,7 @@ def show_map(session: Session = Depends(get_session)):
     aps = session.exec(select(WifiDevice).where(WifiDevice.lat_estimated != None)).all()
 
     # 2. Centrage
-    start_lat, start_lon = 48.8566, 2.3522
+    start_lat, start_lon = 48.84696451963777, 2.356287611714376
     valid_frames = [f for f in frames if f.lat_gps or f.lat_estimated]
     if valid_frames:
         last = valid_frames[-1]
