@@ -1,42 +1,66 @@
-# main.py
 from fastapi import FastAPI
-from database import create_db_and_tables,engine, WifiDetection, WifiDevice,UplinkFrame
-from routers import ttn,frontend,admin
-from sqladmin import Admin,ModelView
+from sqladmin import Admin, ModelView
+from database import create_db_and_tables, engine, WifiDetection, WifiDevice, UplinkFrame
+from routers import ttn, frontend, admin, algo
+from contextlib import asynccontextmanager
 
-app = FastAPI()
-
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     create_db_and_tables()
+    yield
 
-# C'est ici que la magie opère :
-# On ajoute les routes du frontend (à la racine)
+
+app = FastAPI(lifespan=lifespan)
+
+
+# --- ROUTERS (API & Pages Web) ---
+# Page d'accueil (Tableau public) et Page Admin (Validation GPS)
 app.include_router(frontend.router)
 
-# On ajoute les routes TTN (préfixées par /ttn pour être propre)
-# L'URL finale sera donc : http://ton-domaine/ttn/webhook
+# Réception des données de l'ESP32
+app.include_router(algo.router, prefix="/algo", tags=["Algo"])
+
+# Ancienne route TTN (au cas où)
 app.include_router(ttn.router, prefix="/ttn", tags=["TTN"])
 
-app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+# API pour les actions d'administration (ex: bouton "Valider GPS")
+app.include_router(admin.router, prefix="/admin", tags=["Admin API"])
+
+
+# --- INTERFACE VISUELLE BDD (SQLAdmin) ---
+# Accessible via http://IP:PORT/db
+# On configure base_url="/db" pour ne pas toucher au prefixe /admin de l'API
 
 class WifiDeviceAdmin(ModelView, model=WifiDevice):
-    # Colonnes à afficher dans le tableau
-    column_list = [WifiDevice.id, WifiDevice.bssid, WifiDevice.lat_estimated, WifiDevice.last_calculated_at]
     name = "Point WiFi"
     name_plural = "Points WiFi"
+    icon = "fa-solid fa-wifi"
+    column_list = [
+        WifiDevice.id, 
+        WifiDevice.bssid, 
+        WifiDevice.lat_estimated, 
+        WifiDevice.lon_estimated, 
+        WifiDevice.last_calculated_at
+    ]
 
 class UplinkFrameAdmin(ModelView, model=UplinkFrame):
-    column_list = [UplinkFrame.id, UplinkFrame.created_at, UplinkFrame.lat_gps, UplinkFrame.lon_gps]
-    name = "Trame LoRa"
-    name_plural = "Trames LoRa"
+    name = "Trame Reçue"
+    name_plural = "Trames Reçues"
+    icon = "fa-solid fa-satellite-dish"
+    column_list = [
+        UplinkFrame.id, 
+        UplinkFrame.created_at, 
+        UplinkFrame.lat_gps, 
+        UplinkFrame.lat_estimated
+    ]
 
 class WifiDetectionAdmin(ModelView, model=WifiDetection):
-    column_list = [WifiDetection.frame_id, WifiDetection.wifi_id, WifiDetection.rssi]
     name = "Détection"
-    name_plural = "Détections"
+    name_plural = "Détections (Raw)"
+    column_list = [WifiDetection.frame_id, WifiDetection.wifi_id, WifiDetection.rssi]
 
-admin_interface = Admin(app,engine)
+# Initialisation sur /db
+admin_interface = Admin(app, engine, base_url="/db", title="DB Admin")
 admin_interface.add_view(WifiDeviceAdmin)
 admin_interface.add_view(UplinkFrameAdmin)
 admin_interface.add_view(WifiDetectionAdmin)
