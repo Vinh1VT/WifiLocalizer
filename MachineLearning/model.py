@@ -106,7 +106,7 @@ def main():
         model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
         print("🚀 Entraînement...")
-        model.fit(X_train, y_train, epochs=100, batch_size=16, validation_data=(X_test, y_test), verbose=1)
+        model.fit(X_train, y_train, epochs=1000, batch_size=16, validation_data=(X_test, y_test), verbose=1)
 
         # Sauvegarde
         print("💾 Sauvegarde...")

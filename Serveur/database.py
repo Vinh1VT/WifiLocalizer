@@ -44,12 +44,16 @@ class UplinkFrame(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
 
-    # Position RÉELLE
+    # Position RÉELLE (Vérité Terrain)
     lat_gps: Optional[float] = Field(default=None)
     lon_gps: Optional[float] = Field(default=None)
 
-    # Position ESTIMÉE
+    # Position ESTIMÉE (Barycentre Classique)
     lat_estimated: Optional[float] = Field(default=None)
     lon_estimated: Optional[float] = Field(default=None)
+
+    # --- AJOUT : Position ESTIMÉE par IA (Machine Learning) ---
+    lat_ml: Optional[float] = Field(default=None)
+    lon_ml: Optional[float] = Field(default=None)
 
     detections: List["WifiDetection"] = Relationship(back_populates="frame")
