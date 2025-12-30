@@ -7,13 +7,19 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-// --- CONFIGURATION ---
-const char* ssid = "Vinh";        // Le WiFi pour se connecter à Internet/Serveur
-const char* password = "PlanteVerte";
+//Parameters
+#define SSID "Vinh"
+#define WIFI_PASSWD "PlanteVerte"
+#define SERVER_URL  "http://vps-98cd652a.vps.ovh.net:8012/algo/"
 
-// ⚠️ REMPLACE 192.168.X.X par l'IP locale de ton PC qui fait tourner le serveur FastAPI
-// Garde le port 8000 et le chemin /ingest/
-const char* serverUrl = "http://vps-98cd652a.vps.ovh.net:8012/algo/"; 
+
+#define DEBUG 0 //Set to 1 for serial messages
+
+// --- CONFIGURATION ---
+const char* ssid = SSID;
+const char* password = WIFI_PASSWD;
+
+const char* serverUrl = SERVER_URL;
 
 // --- FILTRE MAC ---
 bool MACFilter(uint8_t* MAC){
@@ -30,47 +36,54 @@ String macToString(uint8_t* mac) {
   for (int i = 0; i < 6; i++) {
     if (mac[i] < 16) s += "0";
     s += String(mac[i], HEX);
-    if (i < 5) s += ":"; // Ajoute les deux-points pour le format standard
+    if (i < 5) s += ":";
   }
   s.toUpperCase();
   return s;
 }
 
 void setup() {
-  Serial.begin(115200);
+  if (DEBUG) Serial.begin(115200);
   delay(1000);
 
   // Connexion WiFi
-  Serial.println();
-  Serial.print("Connexion a ");
-  Serial.println(ssid);
+  if (DEBUG){
+    Serial.println();
+    Serial.print("Connexion a ");
+    Serial.println(ssid);
+  }
 
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+
+    if (DEBUG) Serial.print(".");
   }
 
-  Serial.println("");
-  Serial.println("WiFi connecte.");
-  Serial.print("Adresse IP: ");
-  Serial.println(WiFi.localIP());
+  if (DEBUG){
+    Serial.println("");
+    Serial.println("WiFi connecte.");
+    Serial.print("Adresse IP: ");
+    Serial.println(WiFi.localIP());
+  }
 }
 
 void loop() {
   // 1. SCAN DES RÉSEAUX
-  Serial.println("Scan des reseaux...");
+  if (DEBUG) Serial.println("Scan des reseaux...");
   int numSsid = WiFi.scanNetworks();
   
   if (numSsid == -1) {
-    Serial.println("Erreur de scan WiFi");
+    if (DEBUG) Serial.println("Erreur de scan WiFi");
   } else {
-    Serial.print(numSsid);
-    Serial.println(" reseaux trouves.");
+    if (DEBUG) {
+      Serial.print(numSsid);
+      Serial.println(" reseaux trouves.");
+    }
 
     // 2. CONSTRUCTION DU JSON
-    // On veut obtenir : {"networks": [{"bssid": "XX:XX...", "rssi": -80}, ...]}
+    // Sous la forme : {"networks": [{"bssid": "XX:XX...", "rssi": -80}, ...]}
     
     String jsonPayload = "{\"networks\": [";
     int count = 0;
@@ -101,38 +114,40 @@ void loop() {
       if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
         
-        Serial.println("Envoi au serveur...");
-        // Serial.println(jsonPayload); // Decommenter pour debugguer le JSON
+        if(DEBUG){
+            Serial.println("Envoi au serveur...");
+            Serial.println(jsonPayload);
+        }
 
         http.begin(serverUrl);
         http.addHeader("Content-Type", "application/json");
 
         int httpResponseCode = http.POST(jsonPayload);
 
-        if (httpResponseCode > 0) {
-          String response = http.getString();
-          Serial.print("Code HTTP: ");
-          Serial.println(httpResponseCode);
-          Serial.print("Reponse: ");
-          Serial.println(response);
-        } else {
-          Serial.print("Erreur lors de l'envoi: ");
-          Serial.println(httpResponseCode);
+        if (DEBUG) {
+            if (httpResponseCode > 0) {
+              String response = http.getString();
+              Serial.print("Code HTTP: ");
+              Serial.println(httpResponseCode);
+              Serial.print("Reponse: ");
+              Serial.println(response);
+            } else {
+              Serial.print("Erreur lors de l'envoi: ");
+              Serial.println(httpResponseCode);
+            }
         }
         
         http.end();
       } else {
-        Serial.println("Erreur: WiFi deconnecté");
+        if (DEBUG) Serial.println("Erreur: WiFi deconnecté");
       }
     } else {
-      Serial.println("Aucun reseau valide apres filtrage.");
+      if (DEBUG) Serial.println("Aucun reseau valide apres filtrage.");
     }
   }
 
-  // Nettoyage de la mémoire du scan
   WiFi.scanDelete();
 
-  // Attendre avant le prochain scan (ex: 10 secondes)
-  Serial.println("Attente 10s...");
+  if (DEBUG) Serial.println("Attente 10s...");
   delay(10000);
 }
