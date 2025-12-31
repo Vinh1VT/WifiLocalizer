@@ -38,7 +38,6 @@ def index():
 
 
 # --- CARTE INTERACTIVE ---
-# ... (Gardes les imports en haut du fichier)
 
 @router.get("/map", response_class=HTMLResponse)
 def show_map(session: Session = Depends(get_session)):
@@ -82,7 +81,6 @@ def show_map(session: Session = Depends(get_session)):
 
         # B. Cas Estimé (Orange - Cercle d'incertitude)
         elif frame.lat_estimated and frame.lon_estimated:
-            # Calcul "maison" de l'incertitude :
             # Moins on a de bornes, plus le cercle est grand.
             # Base : 20m. Si 1 borne -> 40m. Si 3 bornes -> 15m...
             radius_uncertainty = max(10, 50 - (nb_aps * 10))
@@ -113,7 +111,7 @@ def show_map(session: Session = Depends(get_session)):
     # 6. Bornes WiFi (Cercles Bleus)
     for ap in aps:
         if ap.lat_estimated and ap.lon_estimated:
-            # On dessine un cercle autour de la borne pour simuler sa portée (ex: 30m en ville)
+            #Le cercle correspond à la portée estimée de l'AP
             folium.Circle(
                 location=[ap.lat_estimated, ap.lon_estimated],
                 radius=30,  # Portée théorique en mètres
@@ -143,7 +141,6 @@ def show_map(session: Session = Depends(get_session)):
 # --- ADMIN PANEL (Validation GPS) ---
 @router.get("/admin-panel", response_class=HTMLResponse)
 def admin_dashboard(session: Session = Depends(get_session)):
-    # Récupérer les trames SANS GPS, de la plus récente à la plus ancienne
     statement = select(UplinkFrame).where(UplinkFrame.lat_gps == None).order_by(UplinkFrame.created_at.desc())
     frames = session.exec(statement).all()
 
