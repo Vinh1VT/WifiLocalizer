@@ -38,7 +38,6 @@ def index():
 
 
 # --- CARTE INTERACTIVE ---
-# ... (Gardes les imports en haut du fichier)
 
 @router.get("/map", response_class=HTMLResponse)
 def show_map(session: Session = Depends(get_session)):
@@ -127,7 +126,6 @@ def show_map(session: Session = Depends(get_session)):
 # --- ADMIN PANEL (Validation GPS) ---
 @router.get("/admin-panel", response_class=HTMLResponse)
 def admin_dashboard(session: Session = Depends(get_session)):
-    # Récupérer les trames SANS GPS, de la plus récente à la plus ancienne
     statement = select(UplinkFrame).where(UplinkFrame.lat_gps == None).order_by(UplinkFrame.created_at.desc())
     frames = session.exec(statement).all()
 

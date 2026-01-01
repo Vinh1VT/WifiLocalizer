@@ -27,10 +27,9 @@ def recalculate_ap_positions(session: Session, frame_id: int):
     for detection in frame.detections:
         wifi = detection.wifi
 
-        # Pour ce Wifi, on récupère TOUTES les trames qui l'ont vu ET qui ont un GPS
         query = select(WifiDetection).join(UplinkFrame).where(
             WifiDetection.wifi_id == wifi.id,
-            UplinkFrame.lat_gps != None  # On utilise uniquement les données "sûres"
+            UplinkFrame.lat_gps != None
         )
         all_detections = session.exec(query).all()
 
@@ -61,7 +60,6 @@ def recalculate_ap_positions(session: Session, frame_id: int):
 async def update_frame_location(
         frame_id: int,
         gps_data: GPSUpdate,
-        background_tasks: BackgroundTasks,
         session: Session = Depends(get_session)
 ):
     frame = session.get(UplinkFrame, frame_id)
@@ -76,9 +74,6 @@ async def update_frame_location(
     session.refresh(frame)
 
     # 2. Lancer le recalcul des positions WiFi en arrière-plan
-    # (On passe l'ID et on rouvrira une session dans la tache de fond si besoin,
-    # mais ici on peut le faire en synchrone si c'est rapide, ou via background task)
-    # Pour simplifier ici, on le fait directement :
     recalculate_ap_positions(session, frame_id)
 
     return {"status": "updated", "frame_id": frame.id}

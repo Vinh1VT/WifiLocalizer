@@ -14,22 +14,20 @@ app = FastAPI(lifespan=lifespan)
 
 
 # --- ROUTERS (API & Pages Web) ---
-# Page d'accueil (Tableau public) et Page Admin (Validation GPS)
+# Page d'accueil
 app.include_router(frontend.router)
 
 # Réception des données de l'ESP32
 app.include_router(algo.router, prefix="/algo", tags=["Algo"])
 
-# Ancienne route TTN (au cas où)
+# Ancienne route TTN
 app.include_router(ttn.router, prefix="/ttn", tags=["TTN"])
 
-# API pour les actions d'administration (ex: bouton "Valider GPS")
+# API pour ajouter une vraie localisation à une trame
 app.include_router(admin.router, prefix="/admin", tags=["Admin API"])
 
 
 # --- INTERFACE VISUELLE BDD (SQLAdmin) ---
-# Accessible via http://IP:PORT/db
-# On configure base_url="/db" pour ne pas toucher au prefixe /admin de l'API
 
 class WifiDeviceAdmin(ModelView, model=WifiDevice):
     name = "Point WiFi"

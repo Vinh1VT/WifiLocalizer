@@ -31,7 +31,6 @@ def try_localize_frame(session: Session, frame: UplinkFrame):
     sum_weights = 0.0
     count = 0
 
-    # On doit recharger les detections pour avoir accès aux objets Wifi
     frame_refreshed = session.get(UplinkFrame, frame.id)
 
     for detection in frame_refreshed.detections:
@@ -58,7 +57,7 @@ def process_frame(payload: FramePayload):
         # 1. Créer la trame (sans GPS pour l'instant)
         frame = UplinkFrame()
         session.add(frame)
-        session.flush()  # Pour avoir l'ID
+        session.flush()
 
         # 2. Enregistrer les detections
         for net in payload.networks:
@@ -67,7 +66,7 @@ def process_frame(payload: FramePayload):
             if not wifi:
                 wifi = WifiDevice(bssid=net.bssid)
                 session.add(wifi)
-                session.flush()  # Important pour avoir l'ID wifi
+                session.flush()
 
             # Lier la détection
             det = WifiDetection(frame_id=frame.id, wifi_id=wifi.id, rssi=net.rssi)
@@ -81,6 +80,5 @@ def process_frame(payload: FramePayload):
 
 @router.post("/")
 async def ingest_http(payload: FramePayload, background_tasks: BackgroundTasks):
-    # Traitement en arrière-plan pour ne pas bloquer l'esp32/téléphone
     background_tasks.add_task(process_frame, payload)
     return {"status": "ok", "message": "Frame received"}
