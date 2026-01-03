@@ -1,6 +1,7 @@
 # WifiLocalizer
 
-School IoT
+School IoT Project
+
 WifiLocalizer is a WiFi-based geolocation system. It consists of an ESP32 hardware sniffer and a Python backend for data processing and visualization.
 
 ## Project Structure
