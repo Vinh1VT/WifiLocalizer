@@ -43,7 +43,7 @@ def index():
 def show_map(session: Session = Depends(get_session)):
     # 1. Récupération des données
     frames = session.exec(select(UplinkFrame).order_by(UplinkFrame.created_at)).all()
-    aps = session.exec(select(WifiDevice).where(WifiDevice.lat_estimated != None)).all()
+    aps = session.exec(select(WifiDevice).where(WifiDevice.lat_estimated is not None)).all()
 
     # 2. Centrage
     start_lat, start_lon = 48.84696451963777, 2.356287611714376
@@ -53,7 +53,7 @@ def show_map(session: Session = Depends(get_session)):
         start_lat = last.lat_gps if last.lat_gps else last.lat_estimated
         start_lon = last.lon_gps if last.lon_gps else last.lon_estimated
 
-    m = folium.Map(location=[start_lat, start_lon], zoom_start=17)  # Zoom un peu plus fort
+    m = folium.Map(location=[start_lat, start_lon], zoom_start=17)
 
     # 3. Groupes
     fg_gps = folium.FeatureGroup(name="✅ Trames GPS (Réelles)")
@@ -90,13 +90,13 @@ def show_map(session: Session = Depends(get_session)):
             # Le cercle représente la zone probable
             folium.Circle(
                 location=[frame.lat_estimated, frame.lon_estimated],
-                radius=radius_uncertainty,  # Rayon en MÈTRES (vrai échelle géographique)
+                radius=radius_uncertainty,
                 color="orange", weight=1,
-                fill=True, fill_color="orange", fill_opacity=0.2,  # Très transparent
+                fill=True, fill_color="orange", fill_opacity=0.2,
                 popup=popup_txt
             ).add_to(fg_est)
 
-            # Un petit point au centre pour la position calculée exacte
+            # Un petit point au centre pour la position calculée
             folium.CircleMarker(
                 location=[frame.lat_estimated, frame.lon_estimated],
                 radius=2, color="red", fill=True, fill_opacity=1, popup="Centre estimé"
@@ -111,15 +111,6 @@ def show_map(session: Session = Depends(get_session)):
     # 6. Bornes WiFi (Cercles Bleus)
     for ap in aps:
         if ap.lat_estimated and ap.lon_estimated:
-            #Le cercle correspond à la portée estimée de l'AP
-            folium.Circle(
-                location=[ap.lat_estimated, ap.lon_estimated],
-                radius=30,  # Portée théorique en mètres
-                color="blue", weight=1,
-                fill=True, fill_color="blue", fill_opacity=0.1,
-                popup=f"<b>WiFi: {ap.bssid}</b><br>Portée estimée: ~30m"
-            ).add_to(fg_aps)
-
             # Icône au centre
             folium.Marker(
                 location=[ap.lat_estimated, ap.lon_estimated],
@@ -141,7 +132,7 @@ def show_map(session: Session = Depends(get_session)):
 # --- ADMIN PANEL (Validation GPS) ---
 @router.get("/admin-panel", response_class=HTMLResponse)
 def admin_dashboard(session: Session = Depends(get_session)):
-    statement = select(UplinkFrame).where(UplinkFrame.lat_gps == None).order_by(UplinkFrame.created_at.desc())
+    statement = select(UplinkFrame).where(UplinkFrame.lat_gps is None).order_by(UplinkFrame.created_at.desc())
     frames = session.exec(statement).all()
 
     html_content = """

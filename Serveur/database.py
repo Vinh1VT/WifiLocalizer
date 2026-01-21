@@ -18,6 +18,34 @@ def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
 
+#Wifi Device, used to locate frame
+class WifiDevice(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    bssid: str = Field(index=True, unique=True)
+
+    lat_estimated: Optional[float] = Field(default=None)
+    lon_estimated: Optional[float] = Field(default=None)
+
+    last_calculated_at: Optional[datetime] = Field(default=None)
+
+    detections: List["WifiDetection"] = Relationship(back_populates="wifi")
+
+#Frames, some with real coordinates and other with coordinates to locate
+class UplinkFrame(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+    #real Coordinates
+    lat_gps: Optional[float] = Field(default=None)
+    lon_gps: Optional[float] = Field(default=None)
+
+    #estimated coordinates
+    lat_estimated: Optional[float] = Field(default=None)
+    lon_estimated: Optional[float] = Field(default=None)
+
+    detections: List["WifiDetection"] = Relationship(back_populates="frame")
+
+#Detection of a Device within a Frame
 class WifiDetection(SQLModel, table=True):
     wifi_id: Optional[int] = Field(default=None, foreign_key="wifidevice.id", primary_key=True)
     frame_id: Optional[int] = Field(default=None, foreign_key="uplinkframe.id", primary_key=True)
@@ -25,31 +53,3 @@ class WifiDetection(SQLModel, table=True):
     wifi: "WifiDevice" = Relationship(back_populates="detections")
     frame: "UplinkFrame" = Relationship(back_populates="detections")
 
-
-class WifiDevice(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    bssid: str = Field(index=True, unique=True)
-
-    # Position ESTIMÉE
-    lat_estimated: Optional[float] = Field(default=None)
-    lon_estimated: Optional[float] = Field(default=None)
-
-    # --- AJOUT MANQUANT ---
-    last_calculated_at: Optional[datetime] = Field(default=None)
-
-    detections: List["WifiDetection"] = Relationship(back_populates="wifi")
-
-
-class UplinkFrame(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.now)
-
-    # Position RÉELLE
-    lat_gps: Optional[float] = Field(default=None)
-    lon_gps: Optional[float] = Field(default=None)
-
-    # Position ESTIMÉE
-    lat_estimated: Optional[float] = Field(default=None)
-    lon_estimated: Optional[float] = Field(default=None)
-
-    detections: List["WifiDetection"] = Relationship(back_populates="frame")

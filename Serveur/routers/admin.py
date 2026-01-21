@@ -2,18 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlmodel import Session, select
 from database import get_session, UplinkFrame, WifiDetection
-
+from .algo import rssi_to_weight
 router = APIRouter()
 
 
 class GPSUpdate(BaseModel):
     lat: float
     lon: float
-
-
-def rssi_to_weight(rssi: int) -> float:
-    return pow(10, rssi / 10.0)
-
 
 def recalculate_ap_positions(session: Session, frame_id: int):
     """
@@ -29,7 +24,7 @@ def recalculate_ap_positions(session: Session, frame_id: int):
 
         query = select(WifiDetection).join(UplinkFrame).where(
             WifiDetection.wifi_id == wifi.id,
-            UplinkFrame.lat_gps != None
+            UplinkFrame.lat_gps is not None
         )
         all_detections = session.exec(query).all()
 
