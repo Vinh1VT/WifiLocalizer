@@ -19,8 +19,6 @@ class FramePayload(BaseModel):
 
 # --- Fonctions Utilitaires ---
 def rssi_to_weight(rssi: int) -> float:
-    # Plus le signal est fort (proche de 0), plus le poids est grand
-    # E.g. -50dBm > -90dBm
     return pow(10, rssi / 10.0)
 
 
@@ -35,7 +33,7 @@ def try_localize_frame(session: Session, frame: UplinkFrame):
 
     for detection in frame_refreshed.detections:
         wifi = detection.wifi
-        # Si cet AP a une position connue (estimée)
+        # Si ce device a une position estimée
         if wifi.lat_estimated is not None and wifi.lon_estimated is not None:
             w = rssi_to_weight(detection.rssi)
             sum_lat += wifi.lat_estimated * w
@@ -54,7 +52,7 @@ def try_localize_frame(session: Session, frame: UplinkFrame):
 def process_frame(payload: FramePayload):
     """Sauvegarde les données et lance l'estimation."""
     with Session(engine) as session:
-        # 1. Créer la trame (sans GPS pour l'instant)
+        # 1. Créer la trame (la position GPS estimée ou réelle est calculée autre part)
         frame = UplinkFrame()
         session.add(frame)
         session.flush()

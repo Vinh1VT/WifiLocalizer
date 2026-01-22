@@ -43,18 +43,18 @@ def index():
 def show_map(session: Session = Depends(get_session)):
     # 1. Récupération des données
     frames = session.exec(select(UplinkFrame).order_by(UplinkFrame.created_at)).all()
-    aps = session.exec(select(WifiDevice).where(WifiDevice.lat_estimated != None)).all()
+    aps = session.exec(select(WifiDevice).where(WifiDevice.lat_estimated is not None)).all()
 
-    # 2. Centrage (sur la dernière position connue)
-    start_lat, start_lon = 48.85, 2.35
-    valid_frames = [f for f in frames if f.lat_gps or f.lat_estimated or f.lat_ml]
+    # 2. Centrage
+    start_lat, start_lon = 48.84696451963777, 2.356287611714376
+    valid_frames = [f for f in frames if f.lat_gps or f.lat_estimated]
     if valid_frames:
         last = valid_frames[-1]
         # Priorité : GPS > IA > Barycentre
         start_lat = last.lat_gps or last.lat_ml or last.lat_estimated
         start_lon = last.lon_gps or last.lon_ml or last.lon_estimated
 
-    m = folium.Map(location=[start_lat, start_lon], zoom_start=18)
+    m = folium.Map(location=[start_lat, start_lon], zoom_start=17)
 
     # 3. Création des Groupes (Calques)
     fg_gps = folium.FeatureGroup(name="✅ Vérité Terrain (GPS)")
@@ -126,7 +126,7 @@ def show_map(session: Session = Depends(get_session)):
 # --- ADMIN PANEL (Validation GPS) ---
 @router.get("/admin-panel", response_class=HTMLResponse)
 def admin_dashboard(session: Session = Depends(get_session)):
-    statement = select(UplinkFrame).where(UplinkFrame.lat_gps == None).order_by(UplinkFrame.created_at.desc())
+    statement = select(UplinkFrame).where(UplinkFrame.lat_gps is None).order_by(UplinkFrame.created_at.desc())
     frames = session.exec(statement).all()
 
     html_content = """

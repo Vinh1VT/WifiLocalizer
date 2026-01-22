@@ -54,7 +54,7 @@ class UplinkFrameAdmin(ModelView, model=UplinkFrame):
 
 class WifiDetectionAdmin(ModelView, model=WifiDetection):
     name = "Détection"
-    name_plural = "Détections (Raw)"
+    name_plural = "Détections"
     column_list = [WifiDetection.frame_id, WifiDetection.wifi_id, WifiDetection.rssi]
 
 # Initialisation sur /db
