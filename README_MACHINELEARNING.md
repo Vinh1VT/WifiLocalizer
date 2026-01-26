@@ -9,6 +9,7 @@ As the database must now contain 2 sets of coordinates (1 for the algorithmic me
 ### Prerequisites
 
 Ensure you have the necessary libraries installed (TensorFlow and Scikit-Learn).
+If you switch from main branch, you should run the `patch_db.py` before running the following steps.
 
 ### Steps
 
