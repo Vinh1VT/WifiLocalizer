@@ -43,7 +43,7 @@ def index():
 def show_map(session: Session = Depends(get_session)):
     # 1. Récupération des données
     frames = session.exec(select(UplinkFrame).order_by(UplinkFrame.created_at)).all()
-    aps = session.exec(select(WifiDevice).where(WifiDevice.lat_estimated is not None)).all()
+    aps = session.exec(select(WifiDevice).where(WifiDevice.lat_estimated != None)).all()
 
     # 2. Centrage
     start_lat, start_lon = 48.84696451963777, 2.356287611714376

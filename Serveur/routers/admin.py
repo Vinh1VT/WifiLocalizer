@@ -24,7 +24,7 @@ def recalculate_ap_positions(session: Session, frame_id: int):
 
         query = select(WifiDetection).join(UplinkFrame).where(
             WifiDetection.wifi_id == wifi.id,
-            UplinkFrame.lat_gps is not None
+            UplinkFrame.lat_gps != None
         )
         all_detections = session.exec(query).all()
 
