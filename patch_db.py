@@ -52,7 +52,7 @@ conn.close()
 # --- 3. CHARGEMENT DU MODÈLE ---
 if not os.path.exists(model_path):
     print(f"❌ Modèle introuvable ici : {model_path}")
-    print("👉 Avez-vous lancé 'MachineLearning/train_offline.py' ?")
+    print("👉 Avez-vous lancé 'MachineLearning/model.py' ?")
     sys.exit(1)
 
 print("🧠 Chargement du modèle IA...")
