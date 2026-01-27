@@ -132,7 +132,7 @@ def show_map(session: Session = Depends(get_session)):
 # --- ADMIN PANEL (Validation GPS) ---
 @router.get("/admin-panel", response_class=HTMLResponse)
 def admin_dashboard(session: Session = Depends(get_session)):
-    statement = select(UplinkFrame).where(UplinkFrame.lat_gps is None).order_by(UplinkFrame.created_at.desc())
+    statement = select(UplinkFrame).where(UplinkFrame.lat_gps == None).order_by(UplinkFrame.created_at.desc())
     frames = session.exec(statement).all()
 
     html_content = """
